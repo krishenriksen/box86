@@ -1518,6 +1518,35 @@ static void CreateCPUTopologyCoreID(int fd, int cpu)
 #define TMP_CMDLINE "box86_tmpcmdline"
 EXPORT int32_t my_open(x86emu_t* emu, void* pathname, int32_t flags, uint32_t mode)
 {
+    if (strncmp(pathname, "/dev/input/js", 13) == 0){
+        // Skip all blacklisted joystick devices
+        // GameMaker attemps to open joysticks very often, so lets process it very early on
+        // TODO:: Investigate a proper way of configuring and parsing this list.
+        int js_blacklist[] = {
+            0,
+            -1,
+        };
+
+        char path[64] = "/dev/input/jsXXX";
+        char *end = NULL;
+        int devno = strtol(&((const char*)pathname)[13], &end, 10);
+        if (end && *end == '\0') {
+            int idx = 0;
+            int new_dev = devno;
+
+            // Skip all the blacklisted joysticks.
+            while (js_blacklist[idx] >= 0 && js_blacklist[idx] <= new_dev) {
+                new_dev++;
+                idx++;
+            }
+
+            // Open the redirected joystick
+            snprintf(&path[13], sizeof(path)-13, "%d", new_dev);
+            int ret = open(path, flags, mode);
+            return ret;
+        }
+    }
+
     if(isProcSelf((const char*) pathname, "cmdline")) {
         // special case for self command line...
         #if 0
